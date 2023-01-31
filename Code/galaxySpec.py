@@ -1,3 +1,7 @@
+'''
+author: Joaquin Lopez Cortes.
+motivation: He only believe in data.
+'''
 ########################################################
 ##################### Imports ##########################
 ########################################################
@@ -22,6 +26,28 @@ def redshifted(intrinsic,z):
 
 def redCorrected(observed,z):
     return observed/(z+1)
+
+########################################################
+############### Modelos de Extincion ###################
+########################################################
+
+R_v = ufloat(4.05,0.8)
+Pa_alpha_long = 1.8751 # micrometer
+Pa_gamma_long = 1.0938 # micrometer
+Pa_delta_long = 1.0049 # micrometer
+
+def kappa(long):
+    '''
+    For lambda in (0.63,2.2) micrometers
+    '''
+    return 2.659*(-1.857+1.04/long) + R_v
+
+def shivaei(long):
+    '''
+    For lambda in (0.6,2.85) micrometers
+    '''
+    x = 1/long
+    return -2.672-0.01*x+1.532*x**2-0.412*x**3+2.505
 
 ########################################################
 ######### Funciones modeladoras de cosas################
@@ -77,6 +103,71 @@ fluxClean = np.delete(flux[subset],eliminar)
 ############## Modeling of the data ####################
 ########################################################
 
+class emisionLine:
+    def __init__(self, bordeIzq, bordeDer, mu, sigma, A):
+        self.waveMin = bordeIzq
+        self.waveMax = bordeDer
+        self.subset = (waveClean > bordeIzq) & (waveClean < bordeDer)
+        self.wave = waveClean[self.subset]
+        self.flux = fluxClean[self.subset]
+        self.mu = mu
+        self.sigma = sigma
+        self.A = A
+
+    def plotLine(self):
+        f = self.flux
+        w = self.wave
+        fig = plt.figure(2)
+        fig.clf()
+        ax = fig.add_subplot(111)
+        ax.plot(w, f)
+        ax.set_xlim(self.waveMin, self.waveMax)
+        fig.legend(["Data"])
+        ax.set_xlabel(r'Wavelength ($\AA$)')
+        ax.set_ylabel(r'$ergs / s \cdot \AA \cdot cm^2}$')
+
+    def fit1Gauss(self,N=500):
+        p1 = [self.mu, self.sigma, self.A, 0]
+        popt1, pcov1 = curve_fit(gaussian, self.wave, self.flux, p1)
+        w = np.linspace(self.waveMin, self.waveMax, N)
+        f = gaussian(w, *popt1)
+        fig = plt.figure(2)
+        fig.clf()
+        ax = fig.add_subplot(111)
+        ax.plot(self.wave,self.flux, label='data')
+        ax.plot(w, f, label='1 Gaussian model')
+        ax.set_xlim(self.waveMin, self.waveMax)
+        ax.set_xlabel(r'Wavelength ($\AA$)')
+        ax.set_ylabel(r'$ergs / s \cdot \AA \cdot cm^2}$')
+        ax.legend()
+
+    def fit2Gauss(self, mu1, sigma1, A1, mu2, sigma2, A2, N=500):
+        p2 = [mu1, sigma1, A1, mu2, sigma2, A2, 0]
+        popt2, pcov2 = curve_fit(doubleGaussian, self.wave, self.flux, p2)
+        w = np.linspace(self.waveMin, self.waveMax, N)
+        f = doubleGaussian(w, *popt2)
+        f1 = gaussian(w, popt2[0],popt2[1],popt2[2],0)
+        f2 = gaussian(w, popt2[3],popt2[4],popt2[5],0)
+        fig = plt.figure(2)
+        fig.clf()
+        ax = fig.add_subplot(111)
+        ax.plot(self.wave,self.flux, label='data')
+        ax.plot(w, f,label='2 Gaussian model')
+        ax.plot(w,f1, label='1st Gaussian')
+        ax.plot(w,f2, label='2nd Gaussian')
+        ax.set_xlim(self.waveMin, self.waveMax)
+        ax.set_xlabel(r'Wavelength ($\AA$)')
+        ax.set_ylabel(r'$ergs / s \cdot \AA \cdot cm^2}$')
+        ax.legend()
+
+paAlpha = emisionLine(18700,18800,18750, 2.83, 9.508e-16)
+
+
+
+
+
+
+
 ######################
 # Paschen Alpha 4 -> 3
 subset_alpha = (waveClean > 18700) & (waveClean < 18800)
@@ -99,11 +190,11 @@ p2_alpha = [18750, 2.99, 6.33e-16, 18751, 1.45, 4.56e-16, 9.16e-18]
 popt2_alpha, pcov2_alpha = curve_fit(doubleGaussian, wave_alpha, flux_alpha, p2_alpha)
 mu21_alpha, sigma21_alpha, A21_alpha, mu22_alpha, sigma22_alpha, A22_alpha, c2_alpha = popt2_alpha
 
-plt.clf()
-plt.plot(waveClean,fluxClean, label='data')
-plt.plot(wave_alpha,gaussian(wave_alpha, mu21_alpha, sigma21_alpha, A21_alpha, c2_alpha))
-plt.plot(wave_alpha,gaussian(wave_alpha, mu22_alpha, sigma22_alpha, A22_alpha, c2_alpha))
-plt.plot(wave_alpha, doubleGaussian(wave_alpha, *popt2_alpha), 'r-', label='Pa alpha')
+#plt.clf()
+#plt.plot(waveClean,fluxClean, label='data')
+#plt.plot(wave_alpha,gaussian(wave_alpha, mu21_alpha, sigma21_alpha, A21_alpha, c2_alpha))
+#plt.plot(wave_alpha,gaussian(wave_alpha, mu22_alpha, sigma22_alpha, A22_alpha, c2_alpha))
+#plt.plot(wave_alpha, doubleGaussian(wave_alpha, *popt2_alpha), 'r-', label='Pa alpha')
 
 ############################
 # Linea 12821 Paschen 5 -> 3
@@ -191,7 +282,7 @@ flux10052 = A10052*sigma10052*np.sqrt(2*np.pi)
 #plt.plot(wave_AD, gaussian(wave_AD, *poptAD), label='gaussian fit')
 #plt.ylim(-0.1e-15,1.5e-15)
 #plt.xlim(9600,12000)
-plt.xlabel(r'Wavelength ($\AA$)')
-plt.ylabel(r'$ergs / s \cdot \AA \cdot cm^2}$')
-plt.legend()
-plt.show()
+#plt.xlabel(r'Wavelength ($\AA$)')
+#plt.ylabel(r'$ergs / s \cdot \AA \cdot cm^2}$')
+#plt.legend()
+#plt.show()
