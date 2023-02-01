@@ -1,6 +1,5 @@
 '''
-author: Joaquin Lopez Cortes.
-motivation: He only believe in data.
+I only believe in data.
 '''
 ########################################################
 ##################### Imports ##########################
@@ -36,7 +35,7 @@ Pa_alpha_long = 1.8751 # micrometer
 Pa_gamma_long = 1.0938 # micrometer
 Pa_delta_long = 1.0049 # micrometer
 
-def kappa(long):
+def calzetti(long):
     '''
     For lambda in (0.63,2.2) micrometers
     '''
@@ -54,7 +53,7 @@ def shivaei(long):
 ########################################################
 
 # Define the function to fit (a zeroth order polynomial)
-def recta(x,m):
+def zeroth(x,m):
     return m*x
 
 # Define another function to fit (one Gaussian curve)
@@ -73,10 +72,12 @@ def tripleGaussian(x, mu1, sigma1, A1, mu2, sigma2, A2, mu3, sigma3, A3, c):
 ############## Seting up the data ######################
 ########################################################
 
+#############################
 # Open the file with the flux
 spec = fits.open('/Users/mphstph/Documents/TTB/DatosTTB/J2215+0002/J2215+0002_coadd_tellcorr.fits')
 #print(spec[1].header)
 
+########################
 # Data of the .fits file
 wave = spec[1].data['wave']/(z+1)
 wave_grid_mid = spec[1].data['wave_grid_mid']
@@ -86,14 +87,14 @@ mask = spec[1].data['mask']
 telluric = spec[1].data['telluric']
 obj_model = spec[1].data['obj_model']
 
+######################################
+# Select a specific subset of the data
 
-# Select a subset of the data
 # Deleting first noise part
 subset = (wave > 8800)
 # Cleaning some noisy points
 eliminar = np.where(1/ivar[subset] > 10000) # con N = 10000, se elimina el 10% de los puntos
 error = np.delete(1/ivar[subset],eliminar)
-#eliminar = []
 waveClean = np.delete(wave[subset],eliminar) # redshift corrected
 fluxClean = np.delete(flux[subset],eliminar)
 
@@ -104,15 +105,28 @@ fluxClean = np.delete(flux[subset],eliminar)
 ########################################################
 
 class emisionLine:
-    def __init__(self, bordeIzq, bordeDer, mu, sigma, A):
+    '''
+    Creation of a class for emision lines. a emision line is a set
+    which includes a both wavelengths and fluxes inside some defined
+    range between a wavelength min and max.
+    ''' 
+    def __init__(self, bordeIzq=8800, bordeDer=23385):
         self.waveMin = bordeIzq
         self.waveMax = bordeDer
         self.subset = (waveClean > bordeIzq) & (waveClean < bordeDer)
         self.wave = waveClean[self.subset]
         self.flux = fluxClean[self.subset]
-        self.mu = mu
-        self.sigma = sigma
-        self.A = A
+
+    def plotSpectrum(self):
+        w = self.wave
+        f = self.flux
+        fig = plt.figure(2)
+        fig.clf()
+        ax = fig.add_subplot(111)
+        ax.plot(w, f, label = 'full spectrum')
+        ax.set_xlabel(r'Wavelength ($\AA$)')
+        ax.set_ylabel(r'$ergs / s \cdot \AA \cdot cm^2}$')
+        ax.legend()
 
     def plotLine(self):
         f = self.flux
@@ -120,14 +134,19 @@ class emisionLine:
         fig = plt.figure(2)
         fig.clf()
         ax = fig.add_subplot(111)
-        ax.plot(w, f)
+        ax.plot(w, f, label = 'data')
         ax.set_xlim(self.waveMin, self.waveMax)
-        fig.legend(["Data"])
         ax.set_xlabel(r'Wavelength ($\AA$)')
         ax.set_ylabel(r'$ergs / s \cdot \AA \cdot cm^2}$')
+        ax.legend()
 
-    def fit1Gauss(self,N=500):
-        p1 = [self.mu, self.sigma, self.A, 0]
+    def fit1Gauss(self, best1Fit, N=500):
+        '''
+        best1Fit is an numpy array containing the 3 parameters
+        corresponding to 1 gaussian.
+        '''
+        mu, sigma, A = best1Fit
+        p1 = [mu, sigma, A, 0]
         popt1, pcov1 = curve_fit(gaussian, self.wave, self.flux, p1)
         w = np.linspace(self.waveMin, self.waveMax, N)
         f = gaussian(w, *popt1)
@@ -141,7 +160,12 @@ class emisionLine:
         ax.set_ylabel(r'$ergs / s \cdot \AA \cdot cm^2}$')
         ax.legend()
 
-    def fit2Gauss(self, mu1, sigma1, A1, mu2, sigma2, A2, N=500):
+    def fit2Gauss(self, best2Fit, N=500):
+        '''
+        best2Fit is an numpy array containing the 6 parameters
+        corresponding to the 2 gaussians.
+        '''
+        mu1, sigma1, A1, mu2, sigma2, A2 = best2Fit
         p2 = [mu1, sigma1, A1, mu2, sigma2, A2, 0]
         popt2, pcov2 = curve_fit(doubleGaussian, self.wave, self.flux, p2)
         w = np.linspace(self.waveMin, self.waveMax, N)
@@ -160,8 +184,43 @@ class emisionLine:
         ax.set_ylabel(r'$ergs / s \cdot \AA \cdot cm^2}$')
         ax.legend()
 
-paAlpha = emisionLine(18700,18800,18750, 2.83, 9.508e-16)
+    def fit3Gauss(self, best3Fit, N=500):
+        '''
+        best3Fit is an numpy array containing the 9 parameters
+        corresponding to the 3 gaussians.
+        '''
+        mu1, sigma1, A1, mu2, sigma2, A2, mu3, sigma3, A3 = best3Fit
+        p3 = [mu1, sigma1, A1, mu2, sigma2, A2, mu3, sigma3, A3, 0]
+        popt3, pcov3 = curve_fit(tripleGaussian, self.wave, self.flux, p3)
+        w = np.linspace(self.waveMin, self.waveMax, N)
+        f = tripleGaussian(w, *popt3)
+        f1 = gaussian(w, popt3[0],popt3[1],popt3[2],popt3[9])
+        f2 = gaussian(w, popt3[3],popt3[4],popt3[5],popt3[9])
+        f3 = gaussian(w, popt3[6],popt3[7],popt3[8],popt3[9])
+        fig = plt.figure(2)
+        fig.clf()
+        ax = fig.add_subplot(111)
+        ax.plot(self.wave,self.flux, label='data')
+        ax.plot(w, f,label='3 Gaussian model')
+        ax.plot(w,f1, label='1st Gaussian')
+        ax.plot(w,f2, label='2nd Gaussian')
+        ax.plot(w,f3, label='3rd Gaussian')
+        ax.set_xlim(self.waveMin, self.waveMax)
+        ax.set_xlabel(r'Wavelength ($\AA$)')
+        ax.set_ylabel(r'$ergs / s \cdot \AA \cdot cm^2}$')
+        ax.legend()
 
+
+Alpha1Gauss = np.array([18750.11, 2.83, 9.508e-16])
+Alpha2Gauss = np.array([18750, 2.83, 1e-17, 18750, 2.83, 1e-17])
+Alpha3Gauss = np.array([18749, 3.237, 1e-16, 18751, 1.550 ,1e-16 , 18751, 2.550 , 1e-17])
+
+paAlpha = emisionLine(18700,18800)
+
+gamma1Gauss = np.array([10938,2,3e-16])
+gamma2Gauss = np.array([10938,1,1.5e-16,10938,1,1.5e-16])
+
+paGamma = emisionLine(10910,10960)
 
 
 
