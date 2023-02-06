@@ -1,5 +1,5 @@
 '''
-I only believe in data.
+I only believe in data
 '''
 ########################################################
 ##################### Imports ##########################
@@ -16,7 +16,7 @@ np.random.seed(3_141_592_653)
 ################# Define the redshift ##################
 ########################################################
 
-z = 0.077985 # +- 1.917881e-5 redshift/corrimiento al rojo
+z = 0.077985 # +- 1.917881e-5 redshif
 cosmo = FlatLambdaCDM(H0=70, Om0=0.3)
 lumDist= cosmo.luminosity_distance(z).to('cm').value
 
@@ -79,10 +79,11 @@ spec = fits.open('/Users/mphstph/Documents/TTB/DatosTTB/J2215+0002/J2215+0002_co
 
 ########################
 # Data of the .fits file
+waveShifted = spec[1].data['wave']
 wave = spec[1].data['wave']/(z+1)
 wave_grid_mid = spec[1].data['wave_grid_mid']
 flux = spec[1].data['flux'] * 1e-17
-ivar = spec[1].data['ivar']
+ivar = spec[1].data['ivar'] * 1e17
 mask = spec[1].data['mask']
 telluric = spec[1].data['telluric']
 obj_model = spec[1].data['obj_model']
@@ -93,11 +94,13 @@ obj_model = spec[1].data['obj_model']
 # Deleting first noise part
 subset = (wave > 8800)
 # Cleaning some noisy points
-eliminar = np.where(1/ivar[subset] > 10000) # con N = 10000, se elimina el 10% de los puntos
-error = np.delete(1/ivar[subset],eliminar)
-waveClean = np.delete(wave[subset],eliminar) # redshift corrected
-fluxClean = np.delete(flux[subset],eliminar)
-
+#eliminar = np.where(1/ivar[subset] > 10000) 
+# con N = 10000, se elimina el 10% de los puntos
+#eliminar=[0]
+#error = 1/ivar[subset]
+waveClean = wave[subset] 
+fluxClean = flux[subset]
+ivar = ivar[subset]
 
 
 ########################################################
@@ -116,17 +119,7 @@ class emisionLine:
         self.subset = (waveClean > bordeIzq) & (waveClean < bordeDer)
         self.wave = waveClean[self.subset]
         self.flux = fluxClean[self.subset]
-
-    def plotSpectrum(self):
-        w = self.wave
-        f = self.flux
-        fig = plt.figure(2)
-        fig.clf()
-        ax = fig.add_subplot(111)
-        ax.plot(w, f, label = 'full spectrum')
-        ax.set_xlabel(r'Wavelength ($\AA$)')
-        ax.set_ylabel(r'$ergs / s \cdot \AA \cdot cm^2}$')
-        ax.legend()
+        self.std = 1/ivar[self.subset]
 
     def plotLine(self):
         f = self.flux
@@ -140,15 +133,68 @@ class emisionLine:
         ax.set_ylabel(r'$ergs / s \cdot \AA \cdot cm^2}$')
         ax.legend()
 
-    def fit1Gauss(self, best1Fit, N=500):
+    def fit1Gauss(self, best1Fit):
         '''
         best1Fit is an numpy array containing the 3 parameters
         corresponding to 1 gaussian.
         '''
-        mu, sigma, A = best1Fit
-        p1 = [mu, sigma, A, 0]
-        popt1, pcov1 = curve_fit(gaussian, self.wave, self.flux, p1)
+        mu, sigma, A, c = best1Fit
+        popt1, pcov1 = curve_fit(gaussian, self.wave, self.flux, [mu, sigma, A, c])
+        return popt1
+
+    def fit1GaussN(self, best1Fit, N=100):
+        fig = plt.figure(2)
+        fig.clf()
+        ax = fig.add_subplot(111)
+        ax.plot(self.wave,self.flux, label='data')
+        l = len(self.std)
+        fluxes = np.zeros((l, N))
+        for i in range(l):
+            random_set = np.random.uniform(self.flux[i]-self.std[i], self.flux[i]+self.std[i], N)
+            fluxes[i][:] = random_set
+        datos = np.zeros((N,4))
+        mu, sigma, A, c = best1Fit
+        for i in range(N):
+            flujo = fluxes[:,i]
+            popt, pcov = curve_fit(gaussian, self.wave, flujo, [mu, sigma, A, c])
+            datos[i][:] = popt
+            ax.plot(self.wave, gaussian(self.wave, *popt))
+        ax.set_xlim(self.waveMin, self.waveMax)
+        ax.set_xlabel(r'Wavelength ($\AA$)')
+        ax.set_ylabel(r'$ergs / s \cdot \AA \cdot cm^2}$')
+        ax.legend()
+        return datos  
+
+    def print1GaussN(self, best1Fit, N=100):
+        datos = self.fit1GaussN(best1Fit,N)
+        mu = ufloat(np.mean(datos[:,0]),np.std(datos[:,0]))
+        sigma = ufloat(np.mean(datos[:,1]),np.std(datos[:,1]))
+        A = ufloat(np.mean(datos[:,2]),np.std(datos[:,2]))
+        c = ufloat(np.mean(datos[:,3]),np.std(datos[:,3]))
+        print("Fitted parameters: ")
+        print('Center:', mu)
+        print('Sigma:', sigma)
+        print('Amplitude:', A)
+        print('Continuo:', c)
+
+    def obsFlux1Gauss(self,best1Fit):
+        '''
+        return the observed flux of a line using 1 gaussian model
+        the flux is in erg/ s / cm^2 / Angstrom
+        '''
+        mu, sigma, A, c = self.fit1Gauss(best1Fit)
+        return np.sqrt(2*np.pi)*sigma*A
+
+    def inFlux1Gauss(self,best1Fit):
+        '''
+        irradiated flux in erg/s
+        '''
+        obsFlux = self.obsFlux1Gauss(best1Fit)
+        return 4*np.pi*lumDist**2*obsFlux
+
+    def plot1Gauss(self, best1Fit, N=500):
         w = np.linspace(self.waveMin, self.waveMax, N)
+        popt1 = self.fit1Gauss(best1Fit)
         f = gaussian(w, *popt1)
         fig = plt.figure(2)
         fig.clf()
@@ -165,9 +211,13 @@ class emisionLine:
         best2Fit is an numpy array containing the 6 parameters
         corresponding to the 2 gaussians.
         '''
-        mu1, sigma1, A1, mu2, sigma2, A2 = best2Fit
-        p2 = [mu1, sigma1, A1, mu2, sigma2, A2, 0]
+        mu1, sigma1, A1, mu2, sigma2, A2, c = best2Fit
+        p2 = [mu1, sigma1, A1, mu2, sigma2, A2, c]
         popt2, pcov2 = curve_fit(doubleGaussian, self.wave, self.flux, p2)
+        return popt2
+
+    def plot2Gauss(self, best2Fit, N=500):
+        popt2 = self.fit2Gauss(best2Fit)
         w = np.linspace(self.waveMin, self.waveMax, N)
         f = doubleGaussian(w, *popt2)
         f1 = gaussian(w, popt2[0],popt2[1],popt2[2],0)
@@ -184,14 +234,26 @@ class emisionLine:
         ax.set_ylabel(r'$ergs / s \cdot \AA \cdot cm^2}$')
         ax.legend()
 
+    def flux2Gauss(self,best2Fit):
+        '''
+        return the observed flux of a line using 1 gaussian model
+        the flux is in erg/ s / cm^2 / Angstrom
+        '''
+        mu1, sigma1, A1, mu2, sigma2, A2, c = self.fit2Gauss(best2Fit)
+        return np.sqrt(2*np.pi)*(sigma1*A1 + sigma2*A2)
+
     def fit3Gauss(self, best3Fit, N=500):
         '''
         best3Fit is an numpy array containing the 9 parameters
         corresponding to the 3 gaussians.
         '''
-        mu1, sigma1, A1, mu2, sigma2, A2, mu3, sigma3, A3 = best3Fit
-        p3 = [mu1, sigma1, A1, mu2, sigma2, A2, mu3, sigma3, A3, 0]
+        mu1, sigma1, A1, mu2, sigma2, A2, mu3, sigma3, A3, c = best3Fit
+        p3 = [mu1, sigma1, A1, mu2, sigma2, A2, mu3, sigma3, A3, c]
         popt3, pcov3 = curve_fit(tripleGaussian, self.wave, self.flux, p3)
+        return popt3
+        
+    def plot3Gauss(self, best3Fit, N=500):
+        popt3 = self.fit3Gauss(best3Fit)
         w = np.linspace(self.waveMin, self.waveMax, N)
         f = tripleGaussian(w, *popt3)
         f1 = gaussian(w, popt3[0],popt3[1],popt3[2],popt3[9])
@@ -210,15 +272,26 @@ class emisionLine:
         ax.set_ylabel(r'$ergs / s \cdot \AA \cdot cm^2}$')
         ax.legend()
 
+    def flux3Gauss(self,best3Fit):
+        '''
+        return the observed flux of a line using 1 gaussian model
+        the flux is in erg/ s / cm^2 / Angstrom
+        '''
+        mu1, sigma1, A1, mu2, sigma2, A2, mu3, sigma3, A3, c = self.fit3Gauss(best3Fit)
+        return np.sqrt(2*np.pi)*(sigma1*A1 + sigma2*A2 + sigma3*A3)
 
-Alpha1Gauss = np.array([18750.11, 2.83, 9.508e-16])
-Alpha2Gauss = np.array([18750, 2.83, 1e-17, 18750, 2.83, 1e-17])
-Alpha3Gauss = np.array([18749, 3.237, 1e-16, 18751, 1.550 ,1e-16 , 18751, 2.550 , 1e-17])
+
+
+fullSpec = emisionLine()
+
+Alpha1Gauss = np.array([1.87508271e+04, 2.62915039, 9.50990078e-16, 1.05962901e-17])
+Alpha2Gauss = np.array([18750, 2.83, 1e-17, 18750, 2.83, 1e-17, 0])
+Alpha3Gauss = np.array([18749, 3.237, 1e-16, 18751, 1.550 ,1e-16 , 18751, 2.550 , 1e-17, 0])
 
 paAlpha = emisionLine(18700,18800)
 
-gamma1Gauss = np.array([10938,2,3e-16])
-gamma2Gauss = np.array([10938,1,1.5e-16,10938,1,1.5e-16])
+gamma1Gauss = np.array([10938,2,3e-16,0])
+gamma2Gauss = np.array([10938, 1.7, 2.87e-16, 10935, 1.49, 3.31e-17,0])
 
 paGamma = emisionLine(10910,10960)
 
@@ -229,7 +302,7 @@ paGamma = emisionLine(10910,10960)
 
 ######################
 # Paschen Alpha 4 -> 3
-subset_alpha = (waveClean > 18700) & (waveClean < 18800)
+subset_alpha = (waveClean > 18690) & (waveClean < 18810)
 wave_alpha = waveClean[subset_alpha]
 flux_alpha = fluxClean[subset_alpha]
 
@@ -248,6 +321,8 @@ p2_alpha = [18750, 2.99, 6.33e-16, 18751, 1.45, 4.56e-16, 9.16e-18]
 # Fit the data
 popt2_alpha, pcov2_alpha = curve_fit(doubleGaussian, wave_alpha, flux_alpha, p2_alpha)
 mu21_alpha, sigma21_alpha, A21_alpha, mu22_alpha, sigma22_alpha, A22_alpha, c2_alpha = popt2_alpha
+
+
 
 #plt.clf()
 #plt.plot(waveClean,fluxClean, label='data')
@@ -295,6 +370,7 @@ p10052 = [10047, 3, 1e-17,0]
 popt10052, pcov10052 = curve_fit(gaussian, wave_10052, flux_10052, p10052)
 mu10052, sigma10052, A10052, c10052 = popt10052
 flux10052 = A10052*sigma10052*np.sqrt(2*np.pi)
+
 
 
 
