@@ -1,0 +1,218 @@
+% Template:     Presentación LaTeX
+% Documento:    Archivo principal
+% Versión:      2.1.4 (12/01/2023)
+% Codificación: UTF-8
+%
+% Autor: Pablo Pizarro R.
+%        pablo@ppizarror.com
+%
+% Manual template: [https://latex.ppizarror.com/presentacion]
+% Licencia MIT:    [https://opensource.org/licenses/MIT]
+
+% CREACIÓN DEL DOCUMENTO
+\pdfminorversion=7
+\documentclass[
+	spanish, % Idioma: spanish, english, etc.
+	aspectratio=43, % 1610, 169, 149, 54, 43, 32
+	hyperref={pdfencoding=auto,psdextra},
+	xcolor={dvipsnames,table,usenames}
+]{beamer}
+
+% INFORMACIÓN DEL DOCUMENTO
+\def\documenttitle {Midiendo tasa de formación estelar en análogos locales para galaxias de alto redshift}
+\def\documentsubtitle {TTB}
+\def\documentsubject {Mediante lineas de emisión en el infrarrojo cercano}
+
+\def\documentauthor {Joaquín López Cortés}
+\def\coursename {Trabajo Tutorial Básico}
+\def\coursecode {AS-4901}
+
+\def\universityname {Universidad de Chile}
+\def\universityfaculty {Facultad de Ciencias Físicas y Matemáticas}
+\def\universitydepartment {Departamento de Astronomía}
+\def\universitydepartmentimage {departamentos/das}
+\def\universitylocation {Santiago de Chile}
+
+% CONFIGURACIÓN DATOS BEAMER
+\title[\documentsubtitle]{\documenttitle}
+\subtitle{\documentsubject}
+\author[\documentauthor]{
+	\documentauthor
+	%\footnotesize \href{mailto:pablo@ppizarror.com}{pabflo@ppizarror.com}
+}
+\institute[UChile]{
+	\includegraphics[height=1.1cm]{\universitydepartmentimage} \\
+	\medskip
+	\universityname \\
+	\universityfaculty \\
+	\universitydepartment
+}
+\date[\today]{\footnotesize{\today}}
+
+% IMPORTACIÓN DEL TEMPLATE
+\input{template}
+
+% INICIO DE LAS PÁGINAS
+\begin{document}
+
+% CONFIGURACIÓN DE PÁGINA Y ENCABEZADOS
+\templatePagecfg
+
+% CONFIGURACIONES FINALES
+\templateFinalcfg
+
+% ======================= INICIO DEL DOCUMENTO =======================
+
+% Portada
+\begin{frame}
+	\titlepage
+\end{frame}
+
+% Tabla de contenidos
+%\begin{frame}
+%	\frametitle{Contenidos}
+%	\tableofcontents
+%\end{frame}
+
+% Organiza el documento en secciones, útiles para la tabla de contenidos
+\section{Primera sección}
+
+\subsection{Ejemplo de sub-sección}
+
+%---------------------------------------------------------------------
+% eagleNebula.jpeg
+
+\begin{frame}{Mediciones de SFR mediante lineas}
+	
+	\insertimage[\label{img:SFR}]{starFormationEverywhere.jpg}{scale=0.042}{Zona de formación estelar HII. Creditos: NASA/JPL-Caltech/UCLA}
+	
+\end{frame}
+
+%---------------------------------------------------------------------
+% eagleNebula.jpeg
+
+\begin{frame}{Efectos del polvo en la luz emitida por las estrellas.}
+	
+		\insertimage[\label{img:eagle}]{eagleNebula.jpeg}{scale=0.99}{Nebulosa del águila. Créditos: NASA, ESA, and the Hubble Heritage.}
+	
+\end{frame}
+
+%---------------------------------------------------------------------
+%starFormationEverywhere.jpg
+
+
+
+\begin{frame}{Ventajas del estudio de análogos locales}
+	
+	Las lineas de emisión del infrarrojo cercano se escapan de las capacidades observacionales alrededor de $z∼2$.
+	
+	\insertimage[\label{img:JWST}]{JWST.png}{scale=0.27}{Distintos modos de observación de JWST. Créditos: NASA y STScI.}
+	
+	
+\end{frame}
+
+%---------------------------------------------------------------------
+
+\begin{frame}{Seleccionando análogos locales}
+	 %\footnote{Insertar footnotes es muy fácil con el template!}
+	\insertimage[\label{img:BPT}]{BPT.png}{scale=0.2}{Diagrama BPT, fuente: Bian et al. 2016}
+	
+\end{frame}
+
+%---------------------------------------------------------------------
+
+\begin{frame}{Datos espectrograficos de magelanFIRE}
+	% \addimage{fuente.png}{width=4cm}{Observación cruda de la fuente (J2215+0002).}
+	\insertimage[\label{img:specRaw}]{dataZoom.png}{scale=0.25}{Observación cruda de la fuente (J2215+0002).}
+\end{frame}
+
+
+%---------------------------------------------------------------------
+
+\begin{frame}{Datos espectrograficos de magelanFIRE}
+	% \addimage{fuente.png}{width=4cm}{Observación cruda de la fuente (J2215+0002).}
+	\insertimage[\label{img:spec}]{Detalle.png}{scale=0.25}{Detalle de observación cruda de la fuente (J2215+0002).}
+\end{frame}
+
+%---------------------------------------------------------------------
+
+\begin{frame}{Pasos de la reducción de datos con Pypeit\footnote{Creditos de pypeit: Prochaska et al. 2020}}
+	
+	\begin{itemize}
+		\item \textbf{Flat Fielding}
+		\item \textbf{Trazado de ordenes}
+		\item \textbf{Solución para longitudes de onda}
+		\item \textbf{Extracción del cielo}
+		\item \textbf{Calibración por flujo}
+		\item \textbf{Se combinan las imágenes}
+		\item \textbf{Corrección por telúrica}
+	\end{itemize}
+\end{frame}
+
+%---------------------------------------------------------------------
+
+\begin{frame}{Espectro reducido completo.}
+	\insertimage[\label{img:specCom}]{espectroCompleto.png}{scale=0.27}{Espectro reducido de la galaxia.} \end{frame}
+
+%---------------------------------------------------------------------
+
+\begin{frame}{Close up del espectro}
+	\insertimage[\label{img:spec1}]{zona1.png}{scale=0.27}{Espectro reducido de la galaxia.} \end{frame}
+
+%---------------------------------------------------------------------
+
+\begin{frame}{Paschen-$\alpha$}
+	\insertimage[\label{img:PaAlpha}]{pa.pdf}{scale=0.55}{Linea Paschen alpha reducida y modelada con tres componentes cinemáticos.} \end{frame}
+
+%---------------------------------------------------------------------
+
+\begin{frame}{Paschen-$\alpha$}
+	
+	\begin{itemize}
+	\item{\textbf{Redshift}}
+	Comparando lineas de hidrógeno intrínsecas vs observadas se estimó un redshift de: $0.078$
+	\item{\textbf{Flujo observado}}
+		Integrando el área bajo las gaussianas se obtuvo un flujo de:\\ $(7.07 \pm 0.11)$ $\frac{10^{-15} \cdot ergs}{s \cdot cm^2}$
+
+	
+	\item{\textbf{Flujo intrínseco}}
+		A partir del redshift, se estimó la distancia a la galaxia, con la que se obtuvo:\\ $(1.06 \pm 0.01)$ $\frac{10^{41} \cdot ergs}{s}$
+		
+
+	
+	
+	\item{\textbf{Taza de formación estelar:}}
+		Usando el diagnostico de Kennicutt (1999), la taza de formación estelar se estima en:\\
+		$6.56 \pm 0.10$ $\frac{M_{\odot}}{yr}$
+	\end{itemize}
+\end{frame}
+
+\begin{frame}{Prospectos futuros.}
+	
+	\begin{itemize}
+	\item{\textbf{Análisis bayesiano del modelo de tres componentes.}}
+
+	\item{\textbf{Utilizar los flujos de distintas lineas para estudiar otras propiedades físicas de la galaxias.}}
+	
+	
+	\item{\textbf{Modelar la extinción por polvo de la galaxia.}}
+
+\end{itemize}
+
+\end{frame}
+
+%---------------------------------------------------------------------
+
+\begin{frame}
+	\centering
+	\Huge{Conclusiones}
+\end{frame}
+
+%---------------------------------------------------------------------
+
+\begin{frame}
+	\centering
+	\Huge{Gracias por su atención}
+\end{frame}
+% FIN DEL DOCUMENTO
+\end{document}
