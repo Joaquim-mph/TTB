@@ -61,18 +61,15 @@ waveClean = wave[subset]
 fluxClean = flux[subset]
 ivar = ivar[subset]
 
-
-G1 = np.array(['Center', 'Sigma', 'Amplitude',
-        	   'Continuum'])
-G2 = np.array(['Center 1', 'Sigma 1', 'Amplitude 1',
-               'Center 2', 'Sigma 2', 'Amplitude 2',
-               'Continuum'])
-G3 = np.array(['Center 1', 'Sigma 1', 'Amplitude 1',
-               'Center 2', 'Sigma 2', 'Amplitude 2',
-               'Center 3', 'Sigma 3', 'Amplitude 3',
-               'Continuum'])
-
-names = [G1,G2,G3]
+names =[np.array([ 'Center', 'Sigma', 'Amplitude',
+                   'Continuum' ]),
+        np.array([ 'Center 1', 'Sigma 1', 'Amplitude 1',
+                   'Center 2', 'Sigma 2', 'Amplitude 2',
+                   'Continuum' ]),
+        np.array([ 'Center 1', 'Sigma 1', 'Amplitude 1',
+                   'Center 2', 'Sigma 2', 'Amplitude 2',
+                   'Center 3', 'Sigma 3', 'Amplitude 3',
+                   'Continuum' ])]
 
 class emisionLine:
     '''
@@ -80,14 +77,14 @@ class emisionLine:
     which includes a both wavelengths and fluxes inside some defined
     range between a wavelength min and max.
     ''' 
-    def __init__(self, bordeIzq=8800, bordeDer=23385, bestFit=[np.zeros(4),np.zeros(7),np.zeros(10)]):
+    def __init__(self, bordeIzq=8800, bordeDer=23385, G1=np.zeros(4), G2=np.zeros(7), G3=np.zeros(10)):
         self.waveMin = bordeIzq
         self.waveMax = bordeDer
         self.subset = (waveClean > bordeIzq) & (waveClean < bordeDer)
         self.wave = waveClean[self.subset]
         self.flux = fluxClean[self.subset]
         self.std = 1/ivar[self.subset]
-        self.bestFit = bestFit
+        self.bestFit = [G1,G2,G3]
         self.plotPoints = len(self.flux)*10
 
     def plotLine(self):
@@ -148,28 +145,21 @@ class emisionLine:
     def fitGaussN(self,numberOfGaussians, N=100):
         l = len(self.std)
         fluxes = np.zeros((l, N))
-        for i in range(l):
-            random_set = np.random.uniform(self.flux[i]-self.std[i], self.flux[i]+self.std[i], N)
-            fluxes[i][:] = random_set
-        if numberOfGaussians == 1:
-            datos = np.zeros((N,4))
-            for i in range(N):
-                flujo = fluxes[:,i]
+        datos = np.zeros((N,3*numberOfGaussians+1))
+        for j in range(l):
+            random_set = np.random.uniform(self.flux[j]-self.std[j], self.flux[j]+self.std[j], N)
+            fluxes[j][:] = random_set
+        for i in range(N):
+            flujo = fluxes[:,i]
+            if numberOfGaussians == 1:
                 popt, pcov = curve_fit(gaussian, self.wave, flujo, self.bestFit[0])
-                datos[i][:] = popt
-        elif numberOfGaussians == 2:
-            datos = np.zeros((N,7))
-            for i in range(N):
-                flujo = fluxes[:,i]
+            elif numberOfGaussians == 2:
                 popt, pcov = curve_fit(doubleGaussian, self.wave, flujo, self.bestFit[1])
-                datos[i][:] = popt
-        elif numberOfGaussians == 3:
-            datos = np.zeros((N,10))
-            for i in range(N):
-                flujo = fluxes[:,i]
+            elif numberOfGaussians == 3:
                 popt, pcov = curve_fit(tripleGaussian, self.wave, flujo, self.bestFit[2])
-                datos[i][:] = popt
+            datos[i][:] = popt
         return datos
+
 
     def plotGaussN(self, numberOfGaussians, N=100):
         fig = plt.figure(2)
@@ -182,32 +172,24 @@ class emisionLine:
         for i in range(l):
             random_set = np.random.uniform(self.flux[i]-self.std[i], self.flux[i]+self.std[i], N)
             fluxes[i][:] = random_set
-        if numberOfGaussians == 1:
-            datos = np.zeros((N,4))
-            for i in range(N):
-                flujo = fluxes[:,i]
+        datos = np.zeros((N,3*numberOfGaussians+1))
+        for i in range(N):
+            flujo = fluxes[:,i]
+            if numberOfGaussians == 1:    
                 popt, pcov = curve_fit(gaussian, self.wave, flujo, self.bestFit[0])
-                datos[i][:] = popt
                 ax.plot(wave, gaussian(wave, *popt))
-        elif numberOfGaussians == 2:
-            datos = np.zeros((N,7))
-            for i in range(N):
-                flujo = fluxes[:,i]
+            elif numberOfGaussians == 2:
                 popt, pcov = curve_fit(doubleGaussian, self.wave, flujo, self.bestFit[1])
-                datos[i][:] = popt
                 ax.plot(wave, gaussian(wave, popt[0], popt[1], popt[2], 0))
                 ax.plot(wave, gaussian(wave, popt[3], popt[4], popt[5], 0))
                 ax.plot(wave, doubleGaussian(wave, *popt))
-        elif numberOfGaussians == 3:
-            datos = np.zeros((N,10))
-            for i in range(N):
-                flujo = fluxes[:,i]
+            elif numberOfGaussians == 3:
                 popt, pcov = curve_fit(tripleGaussian, self.wave, flujo, self.bestFit[2])
-                datos[i][:] = popt
                 ax.plot(wave, gaussian(wave, popt[0], popt[1], popt[2], 0))
                 ax.plot(wave, gaussian(wave, popt[3], popt[4], popt[5], 0))
                 ax.plot(wave, gaussian(wave, popt[6], popt[7], popt[8], 0))
                 ax.plot(wave, tripleGaussian(wave, *popt))
+            datos[i][:] = popt
         ax.set_xlim(self.waveMin, self.waveMax)
         ax.set_xlabel(r'Wavelength ($\AA$)')
         ax.set_ylabel(r'$ergs / s \cdot \AA \cdot cm^2}$')
@@ -217,7 +199,7 @@ class emisionLine:
     def printGaussN(self, numberOfGaussians, N=100):
         datos = self.plotGaussN(numberOfGaussians, N)
         for i in range(len(self.bestFit[numberOfGaussians-1])):
-            print(names[numberOfGaussians-1][i],ufloat(np.mean(datos[:,i]),np.std(datos[:,i])))
+            print(names[numberOfGaussians-1][i]+':',ufloat(np.mean(datos[:,i]),np.std(datos[:,i])))
 
     def bestGauss(self, numberOfGaussians, N = 100):
         datos = self.fitGaussN(numberOfGaussians, N)
@@ -236,10 +218,7 @@ class emisionLine:
 
     def inFluxGauss(self,numberOfGaussians,N=100):
         obsFlux = self.obsFluxGauss(numberOfGaussians, N)
-        lumDist= cosmo.luminosity_distance(z).to('cm').value
-        return 4*np.pi*lumDist**2*obsFlux
-
-
+        return 4*np.pi*(cosmo.luminosity_distance(z).to('cm').value)**2*obsFlux
 
 
 fullSpec = emisionLine()
@@ -254,6 +233,7 @@ Alpha3Gauss = np.array([1.87519660e+04, 1.53029701e+00, 5.78783331e-16,
                         1.87506246e+04, 5.06434611e+00, 1.10599006e-16,
                         7.36607411e-18])
 
-alpha = [Alpha1Gauss,Alpha2Gauss,Alpha3Gauss]
+paAlpha = emisionLine(18700,18800,Alpha1Gauss,Alpha2Gauss,Alpha3Gauss)
 
-paAlpha = emisionLine(18700,18800,alpha)
+He3 = emisionLine(10800,10860)
+
